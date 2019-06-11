@@ -3,16 +3,17 @@ import traceback as tb
 import collections
 __VERSION = 0.1
 __PRINT_BUF_LEN = 20
-def standprintQ(maxlen):
-	stdout = collections.deque(maxlen=maxlen)
-	def connectQ():return stdout.appendleft
-	def printQ():
-		if len(stdout):print(stdout.pop())
-	def printQall():
-		while len(stdout):print(stdout.pop())
-	return (printQall, printQ, connectQ)
 
-printQall, printQ, connectQ = standprintQ(__PRINT_BUF_LEN)
+def standprintOut(maxlen):
+	printQ = collections.deque(maxlen=maxlen)
+	def connectQ():return printQ.appendleft
+	def printOut():
+		if len(printQ):print(printQ.pop())
+	def printOutAll():
+		while len(printQ): print(printQ.pop())
+	return (printOutAll, printOut, connectQ)
+
+printOutAll, printOut, connectQ = standprintOut(__PRINT_BUF_LEN)
 
 class DNotify():
 	def __init__(self,dirpath):
@@ -46,22 +47,23 @@ class DNotify():
 	def rmWatch(self):
 		fcntl.fcntl(self.dirfd,fcntl.F_NOTIFY,0)
 		
+		
+class Log():
+	
+	def __init__(self,msgtype='',indent=0):
+		self.data = []
+		if msgtype != '' : msgtype = '({})'.format(msgtype)
+		self.msgtype = msgtype
+		self.indent = indent
+	def append(self,inputdata):self.data.append(inputdata)
+	def extend(self,inputdata):self.data.extend(inputdata)
+	def __str__(self):
+		msg = 'Autopymon {}:\n'.format(self.msgtype)
+		for data in self.data : msg += (" "*self.indent + "{}\n".format(data))
+		return msg
+
 class Autopymon():
 	__ver__ = 0.1
-
-	class Log():
-		def __init__(self,msgtype='',lines=[],indent=0):
-			if isinstance(lines,str): self.data = [lines]
-			else: self.data = lines
-			if msgtype != '' : msgtype = '({})'.format(msgtype)
-			self.msgtype = msgtype
-			self.indent = indent
-		def append(self,data):self.data.append(data)
-		def extend(self,data):self.data.extend(data)
-		def __str__(self):
-			msg = 'Autopymon {}:\n'.format(self.msgtype)
-			for data in self.data : msg += (" "*self.indent + "{}\n".format(data))
-			return msg
 		
 	def __new__(cls,filepath):
 		obj = super(Autopymon,cls).__new__(cls)
@@ -69,6 +71,7 @@ class Autopymon():
 		obj.__ver = cls.__ver__
 		obj.__name = cls.__name__
 		return obj
+	
 	def __init__(self,filepath):
 		filepath = os.path.expanduser(filepath)
 		if not os.path.isfile(filepath):
@@ -83,33 +86,35 @@ class Autopymon():
 	def name(self):return self.__name
 	@property
 	def ver(self):return self.__ver
+	
 	def __runCodeInSandbox(self):
 		os.system('clear')
 		f = open(self.fpath)
 		code = f.read()
 		f.close()
+
+		log = Log(msgtype='Start')
+		log.append('time : {}'.format(time.ctime()))
+		log.append('file : {}'.format(self.fpath))
+		self.pushprint(log)
 		try:
-			log = Autopymon.Log(msgtype='Start')
-			log.append('time : {}'.format(time.ctime()))
-			log.append('file : {}'.format(self.fpath))
-			self.pushprint(log)
-		
-			log = Autopymon.Log(msgtype='Inside-Sandbox',indent=1)
+			log = Log(msgtype='Inside-Sandbox',indent=1)
 			sandbox = {'print':lambda msg:log.append(msg)}
-			exec(code,sandbox,{}) #여기가 좀 다른 분
+			exec(code,sandbox)
 			self.pushprint(log)
 		except:
-			log = Autopymon.Log(msgtype='Code-Exception',indent=1)
+			log = Log(msgtype='Code-Exception',indent=1)
 			exclog = tb.format_exc().splitlines()[3:]
 			exclog[0] = exclog[0].replace('<string>',self.fpath.split('/')[-1])
 			log.extend(exclog)
 			self.pushprint(log)
-		finally:
-			log = Autopymon.Log(msgtype='Check-done')
-			log.append('time : {}'.format(time.ctime()))
-			log.append('Ctrl+C : quit {}'.format(self.name))
-			self.pushprint(log)
-			self.pushprint("-"*os.get_terminal_size().columns)
+			
+		log = Log(msgtype='Check-done')
+		log.append('time : {}'.format(time.ctime()))
+		log.append('-'*os.get_terminal_size().columns)
+		self.pushprint(log)
+		printOutAll()
+
 	
 	def __ioEventHandler(self,signum,frame):
 		if not os.path.isfile(self.fpath): return
@@ -126,10 +131,10 @@ class Autopymon():
 		self.__runCodeInSandbox()
 		while True:
 			try:
-				printQall()
+				time.sleep(1)
 			except KeyboardInterrupt:
 				self.pushprint("\rQuit Autopymon")
-				printQall()
+				printOutAll()
 				return 0
 			except:
 				tb.print_exc()

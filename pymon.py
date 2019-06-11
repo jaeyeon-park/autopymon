@@ -1,6 +1,7 @@
 import sys,os
 from autopymon import Autopymon
 import traceback as tb
+
 class pymonRunner():
 	def __init__(self):
 		self.programName = Autopymon.__name__
@@ -35,10 +36,18 @@ class pymonRunner():
 						return -1
 				else:
 					for isfunc,f_kind in isSeries:
-						if isfunc(f):print("{} is {}".format(f,f_kind))
-					if not exists(f):print("{} does not exist".format(f))
-					dirname = os.path.dirname(f)
-					if not isdir(f):continue
+						if isfunc(f):
+							print("{} is {}".format(f,f_kind))		
+					if not exists(f):
+						print("{} does not exist".format(f))
+					if isdir(f):
+						dirname = f
+					else:
+						dirname = os.path.dirname(f)
+						if not exists(dirname):
+							print("{} dir does not exist".format(dirname))
+							continue
+
 					for node in os.listdir(dirname):
 						node_kind = [node_kind for isfunc,node_kind in isSeries if isfunc(node)]
 						if len(node_kind) : node_kind = node_kind[0]
